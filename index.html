@@ -1,268 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter Duel</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #222; }
-        canvas { background-color: black; display: block; margin: 0 auto; }
-        #scoreBoard {
-            color: white;
-            font-family: monospace;
-            font-size: 20px;
-            position: absolute;
-            top: 10px;
-            width: 100%;
-            text-align: center;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>P2P Chat</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="scoreBoard">
-        Player 1: <span id="player1Score">0</span> | Player 2: <span id="player2Score">0</span>
+  <div class="container">
+    <h1>P2P Chat</h1>
+    <div class="setup">
+      <p>Your ID: <span id="my-id">...</span></p>
+      <input id="peer-id-input" placeholder="Enter peer ID"/>
+      <button id="connect-btn">Connect</button>
     </div>
-    <canvas id="gameCanvas"></canvas>
+    <div class="chat hidden">
+      <div id="messages" class="messages"></div>
+      <form id="msg-form">
+        <input id="msg-input" placeholder="Type a message…" autocomplete="off"/>
+        <button>Send</button>
+      </form>
+    </div>
+  </div>
 
-    <script>
-        // Game Constants
-        const CANVAS_WIDTH = 800;
-        const CANVAS_HEIGHT = 600;
-        const PLAYER_SPEED = 100;
-        const BULLET_SPEED = 1;
-        const BULLET_RADIUS = 4;
-        const PLAYER_RADIUS = 15;
-        const INITIAL_LIVES = 3;
-
-        // Game State Variables
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = CANVAS_WIDTH;
-        canvas.height = CANVAS_HEIGHT;
-
-        let player1 = {
-            x: CANVAS_WIDTH / 4,
-            y: CANVAS_HEIGHT / 2,
-            dx: 0,
-            dy: 0,
-            lives: INITIAL_LIVES,
-            score: 0,
-            color: 'blue'
-        };
-
-        let player2 = {
-            x: CANVAS_WIDTH * 3 / 4,
-            y: CANVAS_HEIGHT / 2,
-            dx: 0,
-            dy: 0,
-            lives: INITIAL_LIVES,
-            score: 0,
-            color: 'red'
-        };
-
-        let bullets = [];
-        let keysPressed = {};
-
-        // Event Listeners for Player Movement and Firing
-        document.addEventListener('keydown', (e) => {
-            keysPressed[e.key] = true;
-        });
-
-        document.addEventListener('keyup', (e) => {
-            keysPressed[e.key] = false;
-        });
-
-        // Game Loop
-        function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Update Game State
-        function update() {
-            // Player 1 movement (WASD)
-            player1.dx = 0;
-            player1.dy = 0;
-            if (keysPressed['w']) player1.dy = -PLAYER_SPEED;
-            if (keysPressed['s']) player1.dy = PLAYER_SPEED;
-            if (keysPressed['a']) player1.dx = -PLAYER_SPEED;
-            if (keysPressed['d']) player1.dx = PLAYER_SPEED;
-
-            // Player 2 movement (Arrow Keys)
-            player2.dx = 0;
-            player2.dy = 0;
-            if (keysPressed['ArrowUp']) player2.dy = -PLAYER_SPEED;
-            if (keysPressed['ArrowDown']) player2.dy = PLAYER_SPEED;
-            if (keysPressed['ArrowLeft']) player2.dx = -PLAYER_SPEED;
-            if (keysPressed['ArrowRight']) player2.dx = PLAYER_SPEED;
-
-            // Update player positions
-            player1.x += player1.dx;
-            player1.y += player1.dy;
-            player2.x += player2.dx;
-            player2.y += player2.dy;
-
-            // Keep players within canvas bounds
-            player1.x = Math.max(PLAYER_RADIUS, Math.min(CANVAS_WIDTH - PLAYER_RADIUS, player1.x));
-            player1.y = Math.max(PLAYER_RADIUS, Math.min(CANVAS_HEIGHT - PLAYER_RADIUS, player1.y));
-            player2.x = Math.max(PLAYER_RADIUS, Math.min(CANVAS_WIDTH - PLAYER_RADIUS, player2.x));
-            player2.y = Math.max(PLAYER_RADIUS, Math.min(CANVAS_HEIGHT - PLAYER_RADIUS, player2.y));
-
-            // Player 1 firing (Spacebar)
-            if (keysPressed[' ']) {
-                fireBullet(player1);
-                keysPressed[' '] = false; // Prevent continuous firing
-            }
-
-            // Player 2 firing (Enter)
-            if (keysPressed['Enter']) {
-                fireBullet(player2);
-                keysPressed['Enter'] = false; // Prevent continuous firing
-            }
-
-            // Update bullets
-            bullets.forEach((bullet, index) => {
-                bullet.x += bullet.dx;
-                bullet.y += bullet.dy;
-
-                // Remove bullets that go off-screen
-                if (bullet.x < 0 || bullet.x > CANVAS_WIDTH || bullet.y < 0 || bullet.y > CANVAS_HEIGHT) {
-                    bullets.splice(index, 1);
-                }
-
-                // Check for collisions with players
-                if (bullet.owner !== player1 && checkCollision(bullet, player1)) {
-                    player1.lives--;
-                    player2.score++; // Award point to the other player
-                    bullets.splice(index, 1); // Remove bullet
-                    resetPlayer(player1); // Reset player position
-                    updateScoreBoard();
-                } else if (bullet.owner !== player2 && checkCollision(bullet, player2)) {
-                    player2.lives--;
-                    player1.score++; // Award point to the other player
-                    bullets.splice(index, 1); // Remove bullet
-                    resetPlayer(player2); // Reset player position
-                    updateScoreBoard();
-                }
-            });
-
-            // Check for game over
-            if (player1.lives <= 0 || player2.lives <= 0) {
-                endGame();
-            }
-        }
-
-        // Draw Game Elements
-        function draw() {
-            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear canvas
-
-            // Draw players
-            drawPlayer(player1);
-            drawPlayer(player2);
-
-            // Draw bullets
-            bullets.forEach(bullet => {
-                drawBullet(bullet);
-            });
-        }
-
-        // Helper function to draw a player
-        function drawPlayer(player) {
-            ctx.fillStyle = player.color;
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.font = '12px Arial';
-            ctx.fillStyle = 'white';
-            ctx.fillText(`Lives: ${player.lives}`, player.x - 20, player.y + PLAYER_RADIUS + 15);
-        }
-
-        // Helper function to draw a bullet
-        function drawBullet(bullet) {
-            ctx.fillStyle = 'white';
-            ctx.beginPath();
-            ctx.arc(bullet.x, bullet.y, BULLET_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Helper function to fire a bullet
-        function fireBullet(player) {
-            let dx = 0;
-            let dy = 0;
-
-            // Bullet direction based on player's current direction (simplistic)
-            if (player === player1) {
-                if (keysPressed['w']) dy = -BULLET_SPEED;
-                else if (keysPressed['s']) dy = BULLET_SPEED;
-                else if (keysPressed['a']) dx = -BULLET_SPEED;
-                else if (keysPressed['d']) dx = BULLET_SPEED;
-                else dx = BULLET_SPEED; // Default right for P1
-            } else { // Player 2
-                if (keysPressed['ArrowUp']) dy = -BULLET_SPEED;
-                else if (keysPressed['ArrowDown']) dy = BULLET_SPEED;
-                else if (keysPressed['ArrowLeft']) dx = -BULLET_SPEED;
-                else if (keysPressed['ArrowRight']) dx = BULLET_SPEED;
-                else dx = -BULLET_SPEED; // Default left for P2
-            }
-
-            if (dx === 0 && dy === 0) { // If no movement key pressed, fire straight ahead
-                if (player === player1) dx = BULLET_SPEED;
-                else dx = -BULLET_SPEED;
-            }
-
-            bullets.push({
-                x: player.x,
-                y: player.y,
-                dx: dx,
-                dy: dy,
-                owner: player // So bullets don't hit their own player
-            });
-        }
-
-        // Collision detection (circle-to-circle)
-        function checkCollision(obj1, obj2) {
-            const distance = Math.sqrt(Math.pow(obj1.x - obj2.x, 2) + Math.pow(obj1.y - obj2.y, 2));
-            return distance < (BULLET_RADIUS + PLAYER_RADIUS);
-        }
-
-        // Reset player position after being hit
-        function resetPlayer(player) {
-            if (player === player1) {
-                player.x = CANVAS_WIDTH / 4;
-                player.y = CANVAS_HEIGHT / 2;
-            } else {
-                player.x = CANVAS_WIDTH * 3 / 4;
-                player.y = CANVAS_HEIGHT / 2;
-            }
-            player.dx = 0;
-            player.dy = 0;
-        }
-
-        // Update the score display
-        function updateScoreBoard() {
-            document.getElementById('player1Score').textContent = player1.score;
-            document.getElementById('player2Score').textContent = player2.score;
-        }
-
-        // End the game and display winner
-        function endGame() {
-            let winner = '';
-            if (player1.lives <= 0) {
-                winner = 'Player 2 Wins!';
-            } else if (player2.lives <= 0) {
-                winner = 'Player 1 Wins!';
-            }
-            alert(`Game Over! ${winner}`);
-            // You might add a restart button or reset here
-            location.reload(); // Simple restart for now
-        }
-
-        // Start the game loop
-        gameLoop();
-    </script>
+  <!-- PeerJS from CDN -->
+  <script src="https://unpkg.com/peerjs@1.5.3/dist/peerjs.min.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
